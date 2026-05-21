@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>JD廠1 · 倉儲位置圖</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:#0c0f1a;color:#cbd5e1;min-height:100vh;padding:16px;-webkit-tap-highlight-color:transparent;}
+h1{font-size:18px;font-weight:900;color:#f1f5f9;letter-spacing:.04em;}
+.subtitle{font-size:11px;color:#475569;margin-top:3px;}
+#syncStatus{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 10px;border-radius:20px;margin-left:10px;vertical-align:middle;}
+#syncStatus.ok{background:#14290a;color:#4ade80;}
+#syncStatus.saving{background:#1a1600;color:#FBBF24;}
+#syncStatus.error{background:#2a0a0a;color:#f87171;}
+#syncStatus.loading{background:#0a1a2a;color:#60a5fa;}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.floor-tabs{display:flex;gap:6px;margin:14px 0 10px;}
+.floor-tab{padding:8px 28px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;border:2px solid #2d3f5c;background:#1e2a42;color:#64748b;font-family:inherit;transition:all .2s;letter-spacing:.05em;}
+.floor-tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6;box-shadow:0 0 16px rgba(59,130,246,.35);}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;}
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #2d3f5c;background:#1e2a42;color:#94a3b8;font-family:inherit;transition:all .2s;}
+.btn.active{background:#FBBF24;color:#0c0f1a;border-color:transparent;}
+.btn.ghost{background:transparent;}
+.edit-hint{margin-bottom:10px;padding:7px 12px;background:#1a1600;border:1px solid rgba(251,191,36,.27);border-radius:7px;font-size:11px;color:#FBBF24;}
+.search-wrap{position:relative;max-width:340px;margin-bottom:12px;}
+.search-wrap input{width:100%;padding:7px 32px 7px 34px;background:#161b2e;border:1px solid #1e2a42;border-radius:7px;color:#e2e8f0;font-size:13px;outline:none;font-family:inherit;}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#475569;font-size:14px;pointer-events:none;}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px;}
+.search-results{position:absolute;top:100%;left:0;right:0;z-index:100;background:#161b2e;border:1px solid #1e2a42;border-radius:7px;max-height:200px;overflow-y:auto;margin-top:4px;}
+.sr-item{padding:7px 14px;cursor:pointer;border-bottom:1px solid #1e2a42;display:flex;justify-content:space-between;font-size:12px;}
+.sr-item:hover{background:#1e2a42;}
+.main{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;}
+#canvas{position:relative;background:#0f1520;border:1px solid #1e2a42;border-radius:10px;overflow:hidden;user-select:none;touch-action:none;flex-shrink:0;}
+.stairs{position:absolute;z-index:10;background:#161b2e;border:1px solid #2d3f5c;border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;}
+.stairs-icon{font-size:26px;line-height:1;}
+.stairs-label{font-size:11px;color:#64748b;font-weight:700;}
+.aisle{position:absolute;display:flex;align-items:center;justify-content:center;z-index:1;}
+.aisle span{font-size:9px;letter-spacing:.2em;}
+.aisle.h{border-top:1px dashed;border-bottom:1px dashed;}
+.aisle.v{border-left:1px dashed;border-right:1px dashed;writing-mode:vertical-rl;}
+.zone{position:absolute;border-radius:6px;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:visible;cursor:pointer;}
+.zone.em{cursor:grab;}.zone.em:active{cursor:grabbing;}
+.zone-label{font-weight:900;text-align:center;white-space:pre-line;line-height:1.25;pointer-events:none;}
+.zone-count{font-size:9px;margin-top:3px;pointer-events:none;}
+.rh{position:absolute;border-radius:2px;z-index:20;}
+.panel{flex:1;min-width:240px;max-width:320px;background:#0f1520;border:1px solid #1e2a42;border-radius:10px;overflow:hidden;}
+.ph{padding:40px 20px;text-align:center;}
+.ph .icon{font-size:36px;margin-bottom:10px;}
+.ph p{font-size:13px;color:#334155;line-height:1.6;}
+.panel-hdr{padding:11px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);}
+.panel-title{font-size:15px;font-weight:900;}
+.panel-cnt{font-size:11px;color:#475569;margin-top:2px;}
+.panel-close{background:none;border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#475569;cursor:pointer;padding:3px 9px;font-size:12px;font-family:inherit;}
+.panel-srch{padding:8px 12px;border-bottom:1px solid #1e2a42;}
+.panel-srch input{width:100%;background:#0c0f1a;border:1px solid #1e2a42;border-radius:5px;padding:5px 10px;color:#e2e8f0;font-size:12px;font-family:inherit;outline:none;}
+.items{max-height:300px;overflow-y:auto;}
+.irow{padding:5px 12px;border-bottom:1px solid #0f1520;display:flex;align-items:center;gap:6px;font-size:12px;}
+.irow:hover{background:#161b2e;}
+.itext{flex:1;}.itext.h{color:#93c5fd;font-weight:700;}.itext.p{color:#94a3b8;}
+.ibtn{background:transparent;border:none;cursor:pointer;font-size:13px;padding:0 3px;color:#334155;line-height:1;}
+.ibtn.e:hover{color:var(--zc,#94a3b8);}.ibtn.d:hover{color:#f87171;}
+.iedit{flex:1;background:#0c0f1a;border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:3px 8px;color:#e2e8f0;font-size:12px;font-family:inherit;outline:none;}
+.icfm{border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;font-weight:700;font-family:inherit;}
+.iccl{background:transparent;border:1px solid #2d3f5c;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:#475569;font-family:inherit;}
+.add-area{padding:10px 12px;border-top:1px solid #1e2a42;background:#0a0d16;}
+.add-lbl{font-size:11px;color:#475569;margin-bottom:6px;}
+.add-row{display:flex;gap:6px;}
+.add-row input{flex:1;background:#0c0f1a;border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:6px 10px;color:#e2e8f0;font-size:12px;font-family:inherit;outline:none;}
+.add-btn{border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.pfooter{padding:6px 12px;font-size:10px;color:#334155;border-top:1px solid #1e2a42;}
+#loadingOverlay{position:fixed;inset:0;background:rgba(12,15,26,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:14px;}
+.spin{width:36px;height:36px;border:3px solid #1e2a42;border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite;}
+#loadingOverlay p{font-size:13px;color:#64748b;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.footer{margin-top:14px;font-size:10px;color:#1e2a42;}
+@media(max-width:720px){.panel{min-width:100%;max-width:100%;}}
+</style>
+</head>
+<body>
+<div id="loadingOverlay"><div class="spin"></div><p>連接 Google Sheets 中...</p></div>
+<h1>JD廠1 · 倉儲位置圖 <span id="syncStatus" class="loading"><span class="dot"></span>連線中</span></h1>
+<p class="subtitle" id="subtitle">載入中...</p>
+<div class="floor-tabs">
+  <button class="floor-tab" id="tab2F" onclick="switchFloor('2F')">2F</button>
+  <button class="floor-tab active" id="tab3F" onclick="switchFloor('3F')">3F</button>
+</div>
+<div class="toolbar">
+  <button class="btn" id="editBtn" onclick="toggleEdit()">✏️ 調整位置</button>
+  <button class="btn ghost" id="resetBtn" onclick="resetLayout()" style="display:none">↺ 重置</button>
+  <button class="btn ghost" onclick="forceSync()">🔄 同步</button>
+  <button class="btn ghost" id="addZoneBtn" onclick="addZone()" style="display:none">＋ 新增格位</button>
+</div>
+<div id="editHint" class="edit-hint" style="display:none">🖱️ 拖曳移動 · 拖曳邊框縮放 · 點「改名」修改名稱 · ＋ 新增格位</div>
+<div class="search-wrap" id="searchWrap">
+  <span class="search-icon">🔍</span>
+  <input type="text" id="gsearch" placeholder="全區搜尋品號..." oninput="onSearch(this.value)">
+  <button class="search-clear" onclick="clearSearch()" style="display:none">×</button>
+  <div class="search-results" id="sresults" style="display:none"></div>
+</div>
+<div class="main">
+  <div id="canvas"></div>
+  <div class="panel" id="panel"><div class="ph"><div class="icon">🏭</div><p>點擊格位<br>查看 / 編輯品號</p></div></div>
+</div>
+<p class="footer">資料存於 Google Sheets · 多裝置即時共用 · JD廠1</p>
+<script>
+const API="https://script.google.com/macros/s/AKfycbzR8lwkD2TLCKt187BEy7_6AUvgdW9Yq4B3k86cZiO_IQxuPUM0vl7tcsL2rHKO_qIouA/exec";
+const CW=660,CH=560,MIN=60;
+const COLORS=["#38BDF8","#FB923C","#34D399","#A78BFA","#FBBF24","#F87171","#60A5FA","#2DD4BF","#E879F9","#818CF8","#F97316","#86EFAC","#94A3B8","#FCD34D","#6EE7B7"];
+let ci=0;
+
+const DEF={
+  "3F":{
+    data:{
+      "3F-①":{color:"#38BDF8",items:["#696","#28877","#674","W5mm","#645","毛邊","SH-005","#641 黑片","#642","#643","MPE166"]},
+      "3F-②":{color:"#FB923C",items:["CVP 2806大","CVP 2805","2739 雪車","2740","2741","#0156","0157","大四角","#2199蓋","#2199軟套(大/小)","1624","#2189","2188","2187","1107","2098","3314","606-2","606-1","589","592","2806-2","591","691","692","扇型","船外机 03-8417A","3312","PVC 010無元"]},
+      "3F-③(3-1)":{color:"#34D399",items:["567","#524(劃)","869","#527(劃)","564","HJ 11-3308","11-3010","508","Nob1-099","Nob1-898","622","ZCOOO7-1"]},
+      "3F-③(3-2)":{color:"#4ADE80",items:["3311","180-531 蝶型","T字頭 B面","#3308","1016B","1868","如頭","1016A","108-279","573 小三角","舊魚頭","大白(大) #2099","787A","#524","#PS63","#469"]},
+      "3F-③(3-3)":{color:"#A78BFA",items:["新魚頭","290-096","盒子龜兔","3309","17312紅","788A","788B","106身","毅揚","風梨目 紅","風梨目 黑","白布","紅布","黑布","440032","2756(大)","單-白 黑片"]},
+      "3F-④":{color:"#FBBF24",items:["#572","573","574","#578","579","581","591","599","#593","592","594","640","597","#569","570","571","580","#568","585","584","576","566","#598","689","690","635","634","625","#562","563","583","580","前面外圍 2877蓋","#589","588","595","593","#596","033","623","636","外圍 舊魚頭","#658","633","673"]},
+      "3F-⑤":{color:"#F87171",items:["#613","616","#603","603-1","灰盒 杜邦S100#","KN07-2","07-1","H0026","H0027","H0028","H0032-1","H0032-2","H0032-3","#600","708","644","#128","小丁","小丁套","A.T 腳踏車","KN-31","#624 雪車身","609 油蓋","外圍 #695","625","727","#595","718","#716","#717"]},
+      "3F-⑥":{color:"#60A5FA",items:["#3255","#3250±","3249","#3245±","#518","#517","511","3248","#674","653","#601","656","#653","#746-2","746-3","745-2","3254下","#658","#672","#681","#678","#582","#745-1","3252","656","657","3247","661","575","#671","#627","#508","748-3","748-2","748-1","731","742","#3251","#652","#678","670","#630","#628","#661","#676"]},
+      "3F-⑦":{color:"#2DD4BF",items:["#612","#624","623","#614","611","612","609"]},
+      "3F-⑧":{color:"#E879F9",items:["#501~#505","#500","#521~#527","#507","#508","#509~#511","#506","#518","#524","#525","#507後大","507前小","#564","#511","#516","#515","#517","#522","#519 透明小"]},
+      "3F-⑨":{color:"#818CF8",items:["#543","544","545","546","542","#530","#554","#560","#561 在後面","#539","#602","#540","#601","#537前","549","548","531","555","552","556","558","557","#556","#532","#552","#602","前面#158","159","157","#5387","#535","#685後","#549","558","#548","#712 灰/黑","#559","#718"]},
+      "3F-⑩":{color:"#F97316",items:["#530透明量","#530組好","#539","#619","#937","#663","#531","#730小","#662","#656-1","#702","#729大","#684","#608","#698","#660","#605","#627","#534","#5274","#738後","#683前","678"]},
+      "3F-⑪":{color:"#86EFAC",items:["#686","#601","#618","#667","#688","#519大","#530組好","#519小","#687","#665","#556","608","700","701","702","659","668","514","669"]},
+      "3F-⑫":{color:"#94A3B8",items:["659","731","735","720","629","521","677","405","DJ-405","0632","#733","646","734","675","後659","#732","#728","DJ0014","DJ0015","DJ0016","DJ0017","後720","後721","#677","514","#649","#535","#629","SB-003","SW-002","#2805","後632","後630","#144","SB001","扇片","SH005","後DJ404A","744","741"]}
+    },
+    zones:[
+      {id:"3F-③(3-1)",x:0,y:0,w:105,h:86,label:"③\n3-1"},
+      {id:"3F-③(3-2)",x:0,y:114,w:105,h:172,label:"③\n3-2"},
+      {id:"3F-③(3-3)",x:0,y:314,w:105,h:86,label:"③\n3-3"},
+      {id:"3F-②",x:107,y:0,w:120,h:86,label:"②"},
+      {id:"3F-①",x:255,y:0,w:300,h:86,label:"①\n(靠樓梯)"},
+      {id:"3F-⑤",x:107,y:114,w:120,h:86,label:"⑤"},
+      {id:"3F-⑦",x:107,y:200,w:120,h:86,label:"⑦"},
+      {id:"3F-④",x:255,y:114,w:255,h:172,label:"④"},
+      {id:"3F-⑥",x:528,y:114,w:132,h:172,label:"⑥"},
+      {id:"3F-⑨",x:107,y:314,w:120,h:86,label:"⑨"},
+      {id:"3F-⑧",x:255,y:314,w:255,h:86,label:"⑧"},
+      {id:"3F-⑩",x:528,y:314,w:132,h:80,label:"⑩"},
+      {id:"3F-⑫",x:528,y:400,w:132,h:76,label:"⑫"},
+      {id:"3F-⑪",x:528,y:482,w:132,h:78,label:"⑪"}
+    ],
+    aisles:[
+      {t:"h",x:0,y:86,w:660,h:28,dark:true,label:"走道"},
+      {t:"h",x:0,y:286,w:660,h:28,dark:true,label:"走道"},
+      {t:"v",x:227,y:0,w:28,h:560,dark:true,label:"走"}
+    ]
+  },
+  "2F":{
+    data:{
+      "2F-②A":{color:"#FB923C",items:["012","011","010","016","014","006身","004蓋","004身","004月","008","002","003"]},
+      "2F-②B":{color:"#F97316",items:["025","019","015","013","組豆","輕鏈","011紅","019後","大(保組)","011(組)後","019","021後","021","162","020"]},
+      "2F-⑧④":{color:"#E879F9",items:["⑧圓圈區","④圓圈區"]},
+      "2F-①1-1":{color:"#38BDF8",items:["006身","004蓋","004身","004月","008","002","003"]},
+      "2F-①1-2":{color:"#60A5FA",items:["005月","008月","002下黑(薄)","003月"]},
+      "2F-①1-3":{color:"#818CF8",items:["006蓋(後)","002下","005蓋","001下","004蓋"]},
+      "2F-①1-4":{color:"#A78BFA",items:["002下","001蓋","006蓋","009月","007月"]},
+      "2F-⑫":{color:"#94A3B8",items:["CC859","860","862","155","156","後 鈦綠 860","862","155","156","鈦綠"]},
+      "2F-④上":{color:"#FBBF24",items:["B區 A區","024","034","031","030","002蓋大中小","033身(後)","033","PVC不明(後)","029","028","027大小","023","001蓋","002蓋小"]},
+      "2F-⑥下":{color:"#F87171",items:["灰盒","114身","132","105","#129","108(後)","100","99","105","107","126","115","116","104後","117","121","108"]},
+      "2F-C區":{color:"#60A5FA",items:["083","082","071","072","085","093","089"]},
+      "2F-③B區":{color:"#34D399",items:["090","091","093","094","098","087","074","084","096","120","199","095(後)","085(回)","145","096(後)","870","082","097","085後下","009身"]},
+      "2F-A區":{color:"#38BDF8",items:["059","056","046","041","045","044","043","042","041","049","039(後)","CCJ810","03"]},
+      "2F-⑤":{color:"#FBBF24",items:["049","051","050","048","649","042","無編3","2粒","065","067","120","120","120","066後"]},
+      "2F-⑧":{color:"#E879F9",items:["#018","#180","#180","#054小孔","M054身大孔","#057後筒","133中","180中","夾盒中(窟)","#186","中#054零件","#156","7分外","8分外","#025下(組分)","跟146混158","方厚(外)","塑外 刀","6分外","中 #054零件","螺帽","碟型末細","SP1516","CCNO59B"]},
+      "2F-⑦":{color:"#2DD4BF",items:["069","071","碟型零件","羽球拍零件","#171上中","#170","#056全組","果凍 大中小","PR0019","KN39","小支印字","CC2049","CCN037透明","CCN037","CC947","CCN037透明","CCN049 13","CCN013","CCN037黑","CC843B","五通角板"]},
+      "2F-⑨":{color:"#818CF8",items:["6 CC844黑","銀","白","#102","×164","黑","漆","#104小","後075","146","前CCN033","走道 SP1516","CC860","CC859","#184","#118身 3孔"]},
+      "2F-⑪":{color:"#86EFAC",items:["白 大中小","#152後","176","#153","#149","#150後","#153後","#149","#007","#159","#148","#104","#153後","#137"]},
+      "2F-⑩":{color:"#F97316",items:["#0081","#122","#092","#062","#109","#064","#061","#037","#038","#060","#101","#119","#137","#138","球大 #038","白 大中小","電梯前 脂套 果凍紐全","#038","#131","#130","CCGO64B","CN092DB","CCG066B","#105","#106","KN-39","白085仔","CCN086AB","CCN089AB","球大"]},
+      "2F-⑲":{color:"#FCD34D",items:["173","#112","#005蓋","M009身","#174","CCZ021PB-1","#175","CC861黃","0110","CCE026黃","CCE027黃","#141","019","140","#040","CC843B","#111","CC843B黑","CC843B","0070","CC861紅","前6外","5分外紅","走道6分外","#139","KAF012中","小饅頭後","行後","GCJ011","CCJ0094","CCJ012"]}
+    },
+    zones:[
+      {id:"2F-②A",   x:0,   y:0,  w:88,  h:95,  label:"②-A"},
+      {id:"2F-②B",   x:88,  y:0,  w:84,  h:95,  label:"②-B"},
+      {id:"2F-⑧④",  x:262, y:0,  w:70,  h:95,  label:"⑧④"},
+      {id:"2F-①1-1", x:332, y:0,  w:67,  h:95,  label:"①\n1-1"},
+      {id:"2F-①1-2", x:399, y:0,  w:63,  h:95,  label:"①\n1-2"},
+      {id:"2F-①1-3", x:462, y:0,  w:63,  h:95,  label:"①\n1-3"},
+      {id:"2F-①1-4", x:525, y:0,  w:73,  h:95,  label:"①\n1-4"},
+      {id:"2F-⑫",    x:598, y:95, w:62,  h:145, label:"⑫"},
+      {id:"2F-④上",  x:0,   y:123,w:240, h:87,  label:"④\n上"},
+      {id:"2F-⑥下",  x:0,   y:210,w:240, h:90,  label:"⑥\n下"},
+      {id:"2F-C區",  x:262, y:123,w:118, h:87,  label:"C區"},
+      {id:"2F-③B區", x:380, y:123,w:120, h:87,  label:"③\nB區"},
+      {id:"2F-A區",  x:500, y:123,w:98,  h:87,  label:"A區"},
+      {id:"2F-⑤",    x:262, y:210,w:336, h:90,  label:"⑤"},
+      {id:"2F-⑧",    x:0,   y:328,w:240, h:232, label:"⑧"},
+      {id:"2F-⑦",    x:262, y:328,w:190, h:232, label:"⑦"},
+      {id:"2F-⑨",    x:474, y:328,w:124, h:232, label:"⑨"},
+      {id:"2F-⑪",    x:598, y:240,w:62,  h:88,  label:"⑪"},
+      {id:"2F-⑩",    x:598, y:328,w:62,  h:116, label:"⑩"},
+      {id:"2F-⑲",    x:598, y:444,w:62,  h:116, label:"⑲"}
+    ],
+    aisles:[
+      {t:"h",x:0,  y:95, w:590,h:28,dark:false,label:"走"},
+      {t:"h",x:0,  y:300,w:240,h:28,dark:false,label:"走"},
+      {t:"h",x:262,y:300,w:328,h:28,dark:false,label:"走道"},
+      {t:"v",x:240,y:0,  w:22, h:328,dark:false,label:"走"},
+      {t:"v",x:240,y:328,w:22, h:232,dark:false,label:"走"},
+      {t:"v",x:452,y:328,w:22, h:232,dark:false,label:"走"}
+    ]
+  }
+};
+
+let floor="3F";
+let floors={
+  "3F":{zones:clone(DEF["3F"].zones),data:clone(DEF["3F"].data)},
+  "2F":{zones:clone(DEF["2F"].zones),data:clone(DEF["2F"].data)}
+};
+let em=false,sel=null,ps="",ei=null,ev="";
+let stimer=null;
+
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function cz(){return floors[floor].zones;}
+function cd(){return floors[floor].data;}
+function ca(){return DEF[floor].aisles;}
+
+function switchFloor(f){
+  floor=f;sel=null;ps="";ei=null;
+  document.getElementById("tab2F").className="floor-tab"+(f==="2F"?" active":"");
+  document.getElementById("tab3F").className="floor-tab"+(f==="3F"?" active":"");
+  rCanvas();rPanel();updSub();
+}
+
+function setSync(s,m){const el=document.getElementById("syncStatus");el.className=s;el.innerHTML=`<span class="dot"></span>${m}`;}
+
+async function loadSheets(){
+  setSync("loading","連線中");
+  try{
+    const r=await fetch(API+"?action=read");const j=await r.json();
+    ["3F","2F"].forEach(f=>{
+      const ik="items_"+f,zk="zones_"+f;
+      if(j[ik]&&j[ik].length>1){
+        Object.keys(floors[f].data).forEach(k=>floors[f].data[k].items=[]);
+        j[ik].slice(1).forEach(row=>{
+          const zid=row[0],item=row[1];if(!zid||!item)return;
+          if(!floors[f].data[zid])floors[f].data[zid]={color:COLORS[ci++%COLORS.length],items:[]};
+          floors[f].data[zid].items.push(item);
+        });
+      }
+      if(j[zk]&&j[zk].length>1)floors[f].zones=j[zk].slice(1).map(r=>({id:String(r[0]),x:+r[1],y:+r[2],w:+r[3],h:+r[4],label:String(r[5])}));
+    });
+    setSync("ok","已同步");
+    document.getElementById("loadingOverlay").style.display="none";
+    rCanvas();rPanel();updSub();
+    if(!j["items_3F"]||j["items_3F"].length<=1)saveSheets();
+  }catch(e){
+    setSync("error","連線失敗");
+    document.getElementById("loadingOverlay").style.display="none";
+    rCanvas();rPanel();updSub();
+  }
+}
+
+async function saveSheets(){
+  setSync("saving","儲存中");
+  try{
+    const p={action:"write",data:{}};
+    ["3F","2F"].forEach(f=>{
+      const ir=[["zone","item","note"]];
+      Object.entries(floors[f].data).forEach(([id,d])=>d.items.forEach(it=>ir.push([id,it,""])));
+      const zr=[["id","x","y","w","h","label"]];
+      floors[f].zones.forEach(z=>zr.push([z.id,z.x,z.y,z.w,z.h,z.label]));
+      p.data["items_"+f]=ir;p.data["zones_"+f]=zr;
+    });
+    await fetch(API,{method:"POST",body:JSON.stringify(p)});
+    setSync("ok","已儲存 ✓");
+  }catch(e){setSync("error","儲存失敗");}
+}
+function schedSave(){clearTimeout(stimer);stimer=setTimeout(saveSheets,1500);}
+function forceSync(){loadSheets();}
+
+function rCanvas(){
+  const cv=document.getElementById("canvas");
+  cv.style.width=CW+"px";cv.style.height=CH+"px";
+  const isDark=floor==="3F";
+  cv.style.background=isDark?"#0f1520":"var(--color-bg,#f8f9fa)";
+
+  const aisleHtml=ca().map(a=>{
+    const bg=a.dark?"#080c14":"transparent";
+    const bc=a.dark?"#1e2a42":"#94a3b8";
+    const tc=a.dark?"#1e2a42":"#94a3b8";
+    const wr=a.t==="v"?"writing-mode:vertical-rl;":"";
+    const bdr=a.t==="h"
+      ?`border-top:1px dashed ${bc};border-bottom:1px dashed ${bc};`
+      :`border-left:1px dashed ${bc};border-right:1px dashed ${bc};`;
+    return`<div class="aisle ${a.t}" style="left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px;background:${bg};${bdr}"><span style="${wr}color:${tc}">${a.label}</span></div>`;
+  }).join("");
+
+  const stairBg=isDark?"#161b2e":"#e2e8f0";
+  const stairBd=isDark?"#2d3f5c":"#94a3b8";
+  const stairHtml=`<div class="stairs" style="right:6px;top:4px;background:${stairBg};border-color:${stairBd};"><span class="stairs-icon">🚪</span><span class="stairs-label" style="color:${isDark?"#64748b":"#475569"}">樓梯</span></div>`;
+
+  cv.innerHTML=stairHtml+aisleHtml;
+
+  cz().forEach(z=>{
+    const d=cd()[z.id];if(!d)return;
+    const act=!em&&sel===z.id;
+    const bg=act?d.color:ha(d.color,.13);
+    const bd=act?d.color:ha(d.color,.45);
+    const sh=act?`0 0 18px ${ha(d.color,.27)}`:em?`0 0 0 2px ${ha(d.color,.35)}`:"none";
+    const fs=z.w>180?13:z.w>100?11:z.w>60?10:9;
+    const el=document.createElement("div");
+    el.className="zone"+(em?" em":"");
+    el.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;background:${bg};border:1.5px solid ${bd};box-shadow:${sh};transition:${em?"none":"all .18s"};`;
+    const renameBtn=em?`<button onclick="renameZone('${z.id}',event)" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);border-radius:4px;color:#fff;font-size:10px;cursor:pointer;padding:1px 5px;z-index:25;font-family:inherit">改名</button>`:"";
+    el.innerHTML=`<div class="zone-label" style="font-size:${fs}px;color:${act?"#0c0f1a":d.color}">${z.label}</div><div class="zone-count" style="color:${act?"rgba(0,0,0,.4)":ha(d.color,.55)}">${d.items.length}筆</div>${em?rHandles(d.color):""}${renameBtn}`;
+    if(!em){
+      el.onclick=()=>{sel=sel===z.id?null:z.id;ps="";ei=null;rCanvas();rPanel();};
+      el.addEventListener("touchend",e=>{e.preventDefault();sel=sel===z.id?null:z.id;ps="";ei=null;rCanvas();rPanel();});
+      el.onmouseenter=()=>{if(sel!==z.id){el.style.background=ha(d.color,.22);el.style.borderColor=d.color;}};
+      el.onmouseleave=()=>{if(sel!==z.id){el.style.background=ha(d.color,.13);el.style.borderColor=ha(d.color,.45);}};
+    }else{
+      el.onmousedown=e=>startDrag(e,z.id,"move");
+      el.addEventListener("touchstart",e=>startTouch(e,z.id,"move"),{passive:false});
+    }
+    cv.appendChild(el);
+    if(em){el.querySelectorAll(".rh").forEach(h=>{h.onmousedown=e=>{e.stopPropagation();startDrag(e,z.id,"resize",h.dataset.dir);};h.addEventListener("touchstart",e=>{e.stopPropagation();startTouch(e,z.id,"resize",h.dataset.dir);},{passive:false});});}
+  });
+}
+
+function rHandles(c){return[{d:"n",s:"top:0;left:50%;transform:translateX(-50%);width:24px;height:6px;cursor:n-resize"},{d:"s",s:"bottom:0;left:50%;transform:translateX(-50%);width:24px;height:6px;cursor:s-resize"},{d:"e",s:"right:0;top:50%;transform:translateY(-50%);width:6px;height:24px;cursor:e-resize"},{d:"w",s:"left:0;top:50%;transform:translateY(-50%);width:6px;height:24px;cursor:w-resize"},{d:"ne",s:"top:0;right:0;width:10px;height:10px;cursor:ne-resize"},{d:"nw",s:"top:0;left:0;width:10px;height:10px;cursor:nw-resize"},{d:"se",s:"bottom:0;right:0;width:10px;height:10px;cursor:se-resize"},{d:"sw",s:"bottom:0;left:0;width:10px;height:10px;cursor:sw-resize"}].map(h=>`<div class="rh" data-dir="${h.d}" style="${h.s};background:${c}cc;position:absolute;z-index:20;border-radius:2px"></div>`).join("");}
+
+let drag=null;
+function startDrag(e,id,t,d=""){e.preventDefault();const z=cz().find(z=>z.id===id);drag={t,id,d,sx:e.clientX,sy:e.clientY,ox:z.x,oy:z.y,ow:z.w,oh:z.h};}
+function startTouch(e,id,t,d=""){e.preventDefault();const tc=e.touches[0],z=cz().find(z=>z.id===id);drag={t,id,d,sx:tc.clientX,sy:tc.clientY,ox:z.x,oy:z.y,ow:z.w,oh:z.h};}
+function applyDrag(cx,cy){
+  if(!drag)return;const dx=cx-drag.sx,dy=cy-drag.sy;
+  floors[floor].zones=floors[floor].zones.map(z=>{
+    if(z.id!==drag.id)return z;
+    if(drag.t==="move")return{...z,x:Math.max(0,Math.min(CW-z.w,drag.ox+dx)),y:Math.max(0,Math.min(CH-z.h,drag.oy+dy))};
+    let nx=z.x,ny=z.y,nw=z.w,nh=z.h;
+    if(drag.d.includes("e"))nw=Math.max(MIN,drag.ow+dx);
+    if(drag.d.includes("s"))nh=Math.max(MIN,drag.oh+dy);
+    if(drag.d.includes("w")){nw=Math.max(MIN,drag.ow-dx);nx=drag.ox+drag.ow-nw;}
+    if(drag.d.includes("n")){nh=Math.max(MIN,drag.oh-dy);ny=drag.oy+drag.oh-nh;}
+    return{...z,x:nx,y:ny,w:nw,h:nh};
+  });rCanvas();
+}
+document.addEventListener("mousemove",e=>applyDrag(e.clientX,e.clientY));
+document.addEventListener("touchmove",e=>{if(!drag)return;e.preventDefault();applyDrag(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+document.addEventListener("mouseup",()=>{if(drag){drag=null;schedSave();}});
+document.addEventListener("touchend",()=>{if(drag){drag=null;schedSave();}});
+
+function toggleEdit(){
+  em=!em;sel=null;
+  document.getElementById("editBtn").textContent=em?"✏️ 編輯中（點完成）":"✏️ 調整位置";
+  document.getElementById("editBtn").className=em?"btn active":"btn";
+  document.getElementById("resetBtn").style.display=em?"":"none";
+  document.getElementById("addZoneBtn").style.display=em?"":"none";
+  document.getElementById("editHint").style.display=em?"":"none";
+  document.getElementById("searchWrap").style.display=em?"none":"";
+  rCanvas();rPanel();
+}
+function resetLayout(){floors[floor].zones=clone(DEF[floor].zones);schedSave();rCanvas();}
+function addZone(){
+  const label=prompt("格位名稱？","新格位");if(!label)return;
+  const id=floor+"-"+label+Date.now()%1000;
+  floors[floor].zones.push({id,x:20,y:20,w:120,h:80,label});
+  floors[floor].data[id]={color:COLORS[ci++%COLORS.length],items:[]};
+  schedSave();rCanvas();
+}
+
+function rPanel(){
+  const panel=document.getElementById("panel");
+  if(!sel){panel.style.borderColor="#1e2a42";panel.innerHTML=`<div class="ph"><div class="icon">🏭</div><p>點擊格位<br>查看 / 編輯品號</p></div>`;return;}
+  const d=cd()[sel];if(!d){sel=null;rPanel();return;}
+  const c=d.color;panel.style.borderColor=ha(c,.27);
+  const fi=d.items.map((it,i)=>({it,i})).filter(({it})=>it.toLowerCase().includes(ps.toLowerCase()));
+  const ih=fi.length===0?`<div style="padding:12px 14px;color:#334155;font-size:12px">查無符合品號</div>`:
+    fi.map(({it,i})=>{
+      if(ei===i)return`<div class="irow"><input class="iedit" id="eipt" value="${esc(it)}" onkeydown="onEK(event,${i})" oninput="ev=this.value"><button class="icfm" style="background:${c};color:#0c0f1a" onclick="saveE(${i})">✓</button><button class="iccl" onclick="cancelE()">✕</button></div>`;
+      return`<div class="irow"><span class="itext ${it.startsWith('#')?'h':'p'}">${esc(it)}</span><button class="ibtn e" style="--zc:${c}" onclick="startE(${i})">✎</button><button class="ibtn d" onclick="delItem(${i})">×</button></div>`;
+    }).join("");
+  panel.innerHTML=`
+    <div class="panel-hdr" style="background:${ha(c,.09)};border-bottom:1px solid ${ha(c,.2)}">
+      <div><div class="panel-title" style="color:${c}">${sel}</div><div class="panel-cnt">共 ${d.items.length} 筆</div></div>
+      <button class="panel-close" onclick="sel=null;rPanel();rCanvas()">關閉</button>
+    </div>
+    <div class="panel-srch"><input placeholder="篩選品號..." value="${esc(ps)}" oninput="ps=this.value;ei=null;rPanel()"></div>
+    <div class="items">${ih}</div>
+    <div class="add-area"><div class="add-lbl">＋ 新增品號</div>
+      <div class="add-row"><input id="aipt" placeholder="輸入品號..." onkeydown="if(event.key==='Enter')addItem()">
+      <button class="add-btn" style="background:${c};color:#0c0f1a" onclick="addItem()">新增</button></div></div>
+    <div class="pfooter">顯示 ${fi.length} / ${d.items.length} 筆</div>`;
+  if(ei!==null){const x=document.getElementById("eipt");if(x){x.focus();x.select();}}
+}
+
+function renameZone(id,e){
+  e.stopPropagation();
+  const z=floors[floor].zones.find(z=>z.id===id);
+  if(!z)return;
+  const cur=z.label.replace(/\n/g," / ");
+  const val=prompt("修改格位名稱（換行用 / 分隔）：",cur);
+  if(val===null)return;
+  const nl=val.trim().replace(/ *\/ */g,"\n")||cur;
+  floors[floor].zones=floors[floor].zones.map(zz=>zz.id===id?{...zz,label:nl}:zz);
+  schedSave();rCanvas();
+}
+function startE(i){ei=i;ev=cd()[sel].items[i];rPanel();}
+function cancelE(){ei=null;rPanel();}
+function saveE(i){const v=(ev||document.getElementById("eipt")?.value||"").trim();if(!v)return;cd()[sel].items[i]=v;ei=null;schedSave();rCanvas();rPanel();}
+function onEK(e,i){ev=e.target.value;if(e.key==="Enter")saveE(i);if(e.key==="Escape")cancelE();}
+function delItem(i){if(!confirm(`確定刪除「${cd()[sel].items[i]}」？`))return;cd()[sel].items.splice(i,1);schedSave();rCanvas();rPanel();}
+function addItem(){const x=document.getElementById("aipt");const v=x?.value.trim();if(!v)return;cd()[sel].items.push(v);x.value="";schedSave();rCanvas();rPanel();}
+
+function onSearch(q){
+  document.querySelector(".search-clear").style.display=q?"":"none";
+  const sr=document.getElementById("sresults");
+  if(!q.trim()){sr.style.display="none";return;}
+  const hits=[];
+  cz().forEach(z=>{(cd()[z.id]?.items||[]).forEach(it=>{if(it.toLowerCase().includes(q.toLowerCase()))hits.push({zid:z.id,it});});});
+  sr.innerHTML=hits.length===0?`<div style="padding:10px 14px;color:#475569;font-size:12px">查無結果</div>`:
+    hits.map(h=>`<div class="sr-item" onclick="goZone('${h.zid}')"><span style="color:#93c5fd">${esc(h.it)}</span><span style="color:${cd()[h.zid].color};font-size:11px;font-weight:700">${h.zid}</span></div>`).join("");
+  sr.style.display="";
+}
+function clearSearch(){document.getElementById("gsearch").value="";document.getElementById("sresults").style.display="none";document.querySelector(".search-clear").style.display="none";}
+function goZone(id){clearSearch();sel=id;ps="";ei=null;rCanvas();rPanel();}
+function ha(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function updSub(){const t=Object.values(cd()).reduce((s,d)=>s+d.items.length,0);document.getElementById("subtitle").textContent=`${floor} · 共 ${cz().length} 區 · ${t} 筆記錄`;}
+
+loadSheets();
+</script>
+</body>
+</html>
